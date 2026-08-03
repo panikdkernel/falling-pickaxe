@@ -55,6 +55,10 @@ class Tnt:
             Tnt._font = pygame.font.Font(None, 70)
         self.font = Tnt._font
 
+        # The blink alpha must live in the pixels rather than come from set_alpha(). main.py's
+        # internal_surface inherits the display format, which on macOS carries an alpha channel
+        # that sprite blits leave at 0; a set_alpha() overlay then composites against a
+        # transparent destination and renders solid white. draw() refills this each frame.
         self._overlay_surface = pygame.Surface(self.texture.get_size(), pygame.SRCALPHA)
         self._overlay_surface.fill((255, 255, 255))
 
@@ -133,7 +137,7 @@ class Tnt:
         brightness = (math.sin(current_time / blink_period * 2 * math.pi) + 1) / 2  # range 0-1
         alpha = int(brightness * 192)  # maximum 75% opacity
 
-        self._overlay_surface.set_alpha(alpha)
+        self._overlay_surface.fill((255, 255, 255, alpha))
         rotated_overlay = pygame.transform.rotate(self._overlay_surface, -math.degrees(self.body.angle))
         overlay_rect = rotated_overlay.get_rect(center=(self.body.position.x, self.body.position.y))
         overlay_rect.y -= camera.offset_y
@@ -201,7 +205,7 @@ class MegaTnt(Tnt):
         brightness = (math.sin(current_time / blink_period * 2 * math.pi) + 1) / 2
         alpha = int(brightness * 192)
 
-        self._overlay_surface.set_alpha(alpha)
+        self._overlay_surface.fill((255, 255, 255, alpha))
         rotated_overlay = pygame.transform.rotate(self._overlay_surface, -math.degrees(self.body.angle))
         overlay_rect = rotated_overlay.get_rect(center=(self.body.position.x, self.body.position.y))
         overlay_rect.y -= camera.offset_y
