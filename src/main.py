@@ -16,6 +16,13 @@ import asyncio
 import threading
 import random
 import os
+import sys
+
+# Redirect standard print statements to stderr in headless mode
+# to prevent them from corrupting the raw video pipe to ffmpeg.
+if os.environ.get("SDL_VIDEODRIVER") == "dummy":
+    sys.stdout = sys.stderr
+
 from hud import Hud
 from collections import deque
 
@@ -511,9 +518,12 @@ def game():
         pygame.display.flip()
         if os.environ.get("SDL_VIDEODRIVER") == "dummy":
             try:
-                sys.stdout.buffer.write(internal_surface.get_view('R').raw)
-            except Exception:
-                pass
+                # Write 24-bit RGB frames strictly to the original stdout for FFmpeg
+                raw_rgb = pygame.image.tobytes(internal_surface, 'RGB')
+                sys.__stdout__.buffer.write(raw_rgb)
+                sys.__stdout__.buffer.flush()
+            except Exception as e:
+                import sys; print(f"Frame pipe error: {e}", file=sys.stderr)
         clock.tick(FRAMERATE)  # Cap the frame rate
 
         # Inside the main loop

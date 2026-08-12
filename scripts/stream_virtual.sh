@@ -29,6 +29,7 @@ echo "Press Ctrl+C to stop."
 import sys, os
 os.environ['SDL_VIDEODRIVER'] = 'dummy'
 os.environ['SDL_AUDIODRIVER'] = 'dummy'
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = 'hide'
 sys.path.insert(0, 'src')
 import main
 main.game()
@@ -39,6 +40,8 @@ main.game()
   -s 1080x1920 \
   -r 60 \
   -i - \
+  -f lavfi \
+  -i anullsrc=channel_layout=stereo:sample_rate=44100 \
   -c:v libx264 \
   -preset ultrafast \
   -tune zerolatency \
@@ -47,4 +50,8 @@ main.game()
   -bufsize 9000k \
   -pix_fmt yuv420p \
   -g 120 \
-  -f flv "rtmp://a.rtmp.youtube.com/live2/$STREAM_KEY"
+  -c:a aac \
+  -b:a 128k \
+  -map 0:v -map 1:a \
+  -shortest \
+  -f flv "rtmps://a.rtmp.youtube.com/live2/$STREAM_KEY"
