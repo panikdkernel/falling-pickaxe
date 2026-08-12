@@ -43,8 +43,9 @@ export PULSE_SOURCE=virtual_speaker.monitor
 
 echo "Setting up virtual display (Xvfb)..."
 export DISPLAY=:99
-# Kill any existing Xvfb on port 99
-fuser -k 6099/tcp 2>/dev/null || true
+# Force kill any lingering Xvfb sessions that might have wrong resolutions
+killall Xvfb 2>/dev/null || true
+sleep 1
 Xvfb :99 -screen 0 1080x1920x24 -ac &
 XVFB_PID=$!
 sleep 2
