@@ -508,6 +508,11 @@ def game():
 
         # Update the display
         pygame.display.flip()
+        if os.environ.get("SDL_VIDEODRIVER") == "dummy":
+            try:
+                sys.stdout.buffer.write(internal_surface.get_view('R').raw)
+            except Exception:
+                pass
         clock.tick(FRAMERATE)  # Cap the frame rate
 
         # Inside the main loop
