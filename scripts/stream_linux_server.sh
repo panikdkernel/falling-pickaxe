@@ -13,16 +13,58 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
-if [ -z "$STREAM_KEY" ]; then
-  echo "Error: STREAM_KEY environment variable is not set."
-  echo "Usage: STREAM_KEY=\"xxxx-xxxx-xxxx-xxxx-xxxx\" ./scripts/stream_linux_server.sh"
-  exit 1
-fi
-
 if [ ! -d ".venv" ]; then
   echo "Error: Virtual environment .venv not found. Run ./scripts/run.sh once first."
   exit 1
 fi
+
+echo "======================================"
+echo "    Falling Pickaxe Server Setup      "
+echo "======================================"
+
+# Prompt for STREAM_KEY if not already set
+if [ -z "$STREAM_KEY" ]; then
+    read -p "Enter your YouTube STREAM_KEY: " INPUT_KEY
+    if [ -n "$INPUT_KEY" ]; then
+        export STREAM_KEY="$INPUT_KEY"
+    else
+        echo "Error: STREAM_KEY is required."
+        exit 1
+    fi
+fi
+
+# Run Python script to interactively update config.json
+.venv/bin/python -c "
+import json, os
+
+config_path = 'config.json'
+try:
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+except Exception as e:
+    print('Failed to load config.json')
+    exit(1)
+
+print(f'\nCurrent YouTube API_KEY: {config.get(\"API_KEY\", \"\")}')
+new_api = input('Enter new API_KEY (press Enter to keep current): ').strip()
+if new_api:
+    config['API_KEY'] = new_api
+
+print(f'\nCurrent CHANNEL_ID: {config.get(\"CHANNEL_ID\", \"\")}')
+new_channel = input('Enter new CHANNEL_ID (press Enter to keep current): ').strip()
+if new_channel:
+    config['CHANNEL_ID'] = new_channel
+
+print(f'\nCurrent LIVESTREAM_ID: {config.get(\"LIVESTREAM_ID\", \"\")}')
+new_stream = input('Enter new LIVESTREAM_ID (press Enter to keep current): ').strip()
+if new_stream:
+    config['LIVESTREAM_ID'] = new_stream
+
+with open(config_path, 'w') as f:
+    config['CHAT_CONTROL'] = True
+    json.dump(config, f, indent=4)
+print('\nconfig.json updated successfully (CHAT_CONTROL automatically enabled)!')
+"
 
 # Cleanup function to kill background processes on exit
 cleanup() {
