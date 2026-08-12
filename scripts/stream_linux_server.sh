@@ -61,7 +61,8 @@ echo "Starting FFmpeg stream to YouTube..."
 ffmpeg -y \
   -f x11grab -video_size 1080x1920 -framerate 60 -i :99.0 \
   -f pulse -i virtual_speaker.monitor \
-  -c:v libx264 -preset ultrafast -tune zerolatency -b:v 4500k \
+  -c:v libx264 -preset ultrafast -tune zerolatency \
+  -aspect 9:16 -b:v 4500k \
   -maxrate 5000k -bufsize 9000k -pix_fmt yuv420p -g 120 \
   -c:a aac -b:a 128k -ar 44100 \
   -map 0:v -map 1:a \

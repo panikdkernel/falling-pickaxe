@@ -41,10 +41,11 @@ main.game()
   -r 60 \
   -i - \
   -f lavfi \
-  -i anullsrc=channel_layout=stereo:sample_rate=44100 \
+  -i "anoisesrc=c=pink:r=44100:a=0.001" \
   -c:v libx264 \
   -preset ultrafast \
   -tune zerolatency \
+  -aspect 9:16 \
   -b:v 4500k \
   -maxrate 5000k \
   -bufsize 9000k \
@@ -54,4 +55,4 @@ main.game()
   -b:a 128k \
   -map 0:v -map 1:a \
   -shortest \
-  -f flv "rtmps://a.rtmp.youtube.com/live2/$STREAM_KEY"
+  -f flv "rtmps://a.rtmp.youtube.com:443/live2/$STREAM_KEY"
