@@ -53,6 +53,7 @@ sleep 2
 echo "Starting Pygame..."
 source .venv/bin/activate
 # Note: No 'dummy' drivers used here! Pygame will render to the virtual screen & audio
+export HEADLESS_FULLSCREEN=1
 python ./src/main.py &
 GAME_PID=$!
 sleep 3

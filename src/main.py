@@ -195,6 +195,9 @@ threading.Thread(target=start_event_loop, args=(asyncio_loop,), daemon=True).sta
 def game():
     window_width = int(INTERNAL_WIDTH / 2)
     window_height = int(INTERNAL_HEIGHT / 2)
+    if os.environ.get("HEADLESS_FULLSCREEN") == "1":
+        window_width = INTERNAL_WIDTH
+        window_height = INTERNAL_HEIGHT
 
     # Initialize pygame
     pygame.init()
@@ -206,7 +209,10 @@ def game():
 
     # Create a resizable window
     screen_size = (window_width, window_height)
-    screen = pygame.display.set_mode(screen_size, pygame.RESIZABLE)
+    if os.environ.get("HEADLESS_FULLSCREEN") == "1":
+        screen = pygame.display.set_mode(screen_size, pygame.NOFRAME)
+    else:
+        screen = pygame.display.set_mode(screen_size, pygame.RESIZABLE)
     scaled_surface = pygame.Surface(screen_size).convert()
     pygame.display.set_caption("Falling Pickaxe")
     # set icon
@@ -313,7 +319,10 @@ def game():
                     new_height = int(new_width * (16 / 9))
 
                 window_width, window_height = new_width, new_height
-                screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE)
+                if os.environ.get("HEADLESS_FULLSCREEN") == "1":
+                    screen = pygame.display.set_mode((window_width, window_height), pygame.NOFRAME)
+                else:
+                    screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE)
                 scaled_surface = pygame.Surface((window_width, window_height)).convert()
 
         # ++++++++++++++++++  UPDATE ++++++++++++++++++
