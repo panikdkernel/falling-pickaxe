@@ -62,6 +62,63 @@ class Hud:
         self.fast_slow_cache = None
         self.fast_slow_surface = None
 
+        # Pre-render commands sidebar (Right side)
+        self.sidebar_title_font = pygame.font.Font(None, 24)
+        self.sidebar_font = pygame.font.Font(None, 20)
+        
+        # Maximize font size that still fits in ~110px width
+        self.commands_title_font = pygame.font.Font(None, 30)
+        self.commands_font = pygame.font.Font(None, 26)
+        self.small_font = pygame.font.Font(None, 34)
+        self.commands_surface = None
+        self._init_commands_surface()
+
+    def _init_commands_surface(self):
+        commands = [
+            ("COMMANDS", (255, 215, 0)),
+            ("----------------", (150, 150, 150)),
+            ("tnt", (255, 255, 255)),
+            ("big", (255, 255, 255)),
+            ("fast", (255, 255, 255)),
+            ("slow", (255, 255, 255)),
+            ("----------------", (150, 150, 150)),
+            ("PICKAXES:", (255, 215, 0)),
+            ("wood", (220, 220, 220)),
+            ("stone", (220, 220, 220)),
+            ("iron", (220, 220, 220)),
+            ("gold", (220, 220, 220)),
+            ("diamond", (220, 220, 220)),
+            ("netherite", (220, 220, 220)),
+        ]
+        
+        # Strictly keep to bedrock width (120px) to not block game
+        sidebar_w = BLOCK_SIZE
+        # We need INTERNAL_HEIGHT, which was imported
+        try:
+            sidebar_h = INTERNAL_HEIGHT
+        except NameError:
+            sidebar_h = 1920 # Fallback
+
+        self.commands_surface = pygame.Surface((sidebar_w, sidebar_h), pygame.SRCALPHA)
+
+        # Semi-transparent dark overlay covering the right area
+        bg_rect = pygame.Rect(0, 0, sidebar_w, sidebar_h)
+        pygame.draw.rect(self.commands_surface, (0, 0, 0, 180), bg_rect)
+        pygame.draw.line(self.commands_surface, (255, 215, 0, 200), (0, 0), (0, sidebar_h), width=3)
+
+        cur_y = 60
+        spacing = 16
+
+        for text, color in commands:
+            is_title = text in ["COMMANDS", "PICKAXES:"]
+            font = self.commands_title_font if is_title else self.commands_font
+            surf = render_text_with_outline(text, font, color, (0, 0, 0), outline_width=2)
+            
+            # Center alignment inside sidebar
+            cur_x = (sidebar_w - surf.get_width()) // 2
+            self.commands_surface.blit(surf, (cur_x, cur_y))
+            cur_y += surf.get_height() + spacing
+
     def update_amounts(self, new_amounts):
         """
         Update the ore amounts.
@@ -69,10 +126,14 @@ class Hud:
         """
         self.amounts.update(new_amounts)
 
-    def draw(self, screen, pickaxe_y, fast_slow_active, fast_slow):
+    def draw(self, screen, pickaxe_y, fast_slow_active, fast_slow, leaderboard_data=None):
         """
         Draws the HUD: each ore icon with its amount and other indicators.
         """
+        if leaderboard_data is None:
+            leaderboard_data = {}
+
+        # Reset stats position back to original top-left
         x, y = self.position
 
         for ore, amount in self.amounts.items():
@@ -115,6 +176,46 @@ class Hud:
         fast_slow_x = x + self.spacing
         fast_slow_y = y + 2 * self.spacing + self.fast_slow_surface.get_height()
         screen.blit(self.fast_slow_surface, (fast_slow_x, fast_slow_y))
+
+        # Draw vertical commands sidebar over the right bedrock wall
+        if self.commands_surface:
+            cmd_x = screen.get_width() - self.commands_surface.get_width()
+            screen.blit(self.commands_surface, (cmd_x, 0))
+
+        # Draw transparent hovering leaderboard box centered near top of screen
+        top_viewers = sorted(leaderboard_data.items(), key=lambda item: item[1], reverse=True)[:5]
+        if top_viewers:
+            lb_title_font = pygame.font.Font(None, 52)
+            lb_entry_font = pygame.font.Font(None, 40)
+
+            lb_title = render_text_with_outline("TOP PLAYERS", lb_title_font, (255, 215, 0), (0, 0, 0), outline_width=3)
+            
+            lines = [lb_title]
+            max_w = lb_title.get_width()
+            total_h = lb_title.get_height() + 10
+
+            for rank, (author, score) in enumerate(top_viewers, start=1):
+                display_name = author[:14] + ".." if len(author) > 14 else author
+                t_surf = render_text_with_outline(f"#{rank} {display_name}: {score}", lb_entry_font, (255, 255, 255), (0, 0, 0), outline_width=2)
+                lines.append(t_surf)
+                if t_surf.get_width() > max_w:
+                    max_w = t_surf.get_width()
+                total_h += t_surf.get_height() + 8
+
+            padding = 16
+            lb_box = pygame.Surface((max_w + padding * 2, total_h + padding * 2), pygame.SRCALPHA)
+            pygame.draw.rect(lb_box, (0, 0, 0, 160), (0, 0, max_w + padding * 2, total_h + padding * 2), border_radius=12)
+            pygame.draw.rect(lb_box, (255, 215, 0, 220), (0, 0, max_w + padding * 2, total_h + padding * 2), width=3, border_radius=12)
+
+            curr_y = padding
+            for line_surf in lines:
+                curr_x = padding + (max_w - line_surf.get_width()) // 2
+                lb_box.blit(line_surf, (curr_x, curr_y))
+                curr_y += line_surf.get_height() + 8
+
+            # Position leaderboard centered horizontally near top of screen
+            lb_x = (screen.get_width() - lb_box.get_width()) // 2
+            screen.blit(lb_box, (lb_x, 32))
 
             
 

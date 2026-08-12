@@ -70,7 +70,7 @@ big_authors = set()
 pickaxe_queue = deque()
 pickaxe_authors = set()
 mega_tnt_queue = deque()
-
+leaderboard_data = {}
 async def handle_youtube_poll():
     global subscribers # Use global to modify the variable
 
@@ -90,12 +90,16 @@ async def handle_youtube_poll():
 
         text_lower = text.lower()
 
+        # Give 1 point for any valid command
+        command_used = False
+
         # Check for "tnt" command (add author to regular tnt_queue) - Only English "tnt"
         if "tnt" in text_lower:
             if author not in tnt_queue_authors:
                 tnt_queue.append(author)
                 tnt_queue_authors.add(author)
                 print(f"Added {author} to regular TNT queue")
+                command_used = True
 
         # Check for Superchat/Supersticker (add to superchat tnt queue)
         if is_superchat or is_supersticker:
@@ -103,20 +107,24 @@ async def handle_youtube_poll():
                  tnt_superchat_queue.append((author, text))
                  tnt_superchat_authors.add(author)
                  print(f"Added {author} to Superchat TNT queue")
+                 command_used = True
 
         if "fast" in text.lower() and author not in fast_slow_authors:
             fast_slow_queue.append((author, "Fast"))
             fast_slow_authors.add(author)
             print(f"Added {author} to Fast/Slow queue (Fast)")
+            command_used = True
         elif "slow" in text.lower() and author not in fast_slow_authors:
             fast_slow_queue.append((author, "Slow"))
             fast_slow_authors.add(author)
             print(f"Added {author} to Fast/Slow queue (Slow)")
+            command_used = True
 
         if "big" in text.lower() and author not in big_authors:
             big_queue.append(author)
             big_authors.add(author)
             print(f"Added {author} to Big queue")
+            command_used = True
 
         # Check for pickaxe commands (add author and pickaxe type to pickaxe_queue)
         if "wood" in text_lower:
@@ -124,31 +132,45 @@ async def handle_youtube_poll():
                  pickaxe_queue.append((author, "wooden_pickaxe"))
                  pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (wooden_pickaxe)")
+                 command_used = True
         elif "stone" in text_lower:
              if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "stone_pickaxe"))
                  pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (stone_pickaxe)")
+                 command_used = True
         elif "iron" in text_lower:
              if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "iron_pickaxe"))
                  pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (iron_pickaxe)")
+                 command_used = True
         elif "gold" in text_lower:
              if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "golden_pickaxe"))
                  pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (golden_pickaxe)")
+                 command_used = True
         elif "diamond" in text_lower:
              if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "diamond_pickaxe"))
                  pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (diamond_pickaxe)")
+                 command_used = True
         elif "netherite" in text_lower:
              if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "netherite_pickaxe"))
                  pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (netherite_pickaxe)")
+                 command_used = True
+
+        if command_used:
+            if author not in leaderboard_data:
+                leaderboard_data[author] = 0
+            leaderboard_data[author] += 1
+            if is_superchat or is_supersticker:
+                leaderboard_data[author] += 9 # extra points for superchats
+
 
     # print the queue counts (optional, for debugging)
     # print(f"Queues: TNT={len(tnt_queue)}, Superchat TNT={len(tnt_superchat_queue)}, Fast/Slow={len(fast_slow_queue)}, Big={len(big_queue)}, Pickaxe={len(pickaxe_queue)}, MegaTNT={len(mega_tnt_queue)}")
@@ -458,7 +480,7 @@ def game():
         explosions = [e for e in explosions if e.particles]
 
         # Draw HUD
-        hud.draw(internal_surface, pickaxe.body.position.y, fast_slow_active, fast_slow)
+        hud.draw(internal_surface, pickaxe.body.position.y, fast_slow_active, fast_slow, leaderboard_data)
 
         # Scale internal surface to fit the resized window
         pygame.transform.scale(internal_surface, (window_width, window_height), scaled_surface)
