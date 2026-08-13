@@ -6,11 +6,47 @@ from constants import BLOCK_SIZE
 from constants import CHUNK_HEIGHT, CHUNK_WIDTH
 from chunk import chunks
 from explosion import Explosion
+import os
+
+_meteor_image = None
+def get_meteor_image():
+    global _meteor_image
+    if _meteor_image is None:
+        path = os.path.join(os.path.dirname(__file__), 'assets', 'meteor.png')
+        try:
+            img = pygame.image.load(path).convert()
+            # The new image has a solid black background; make it transparent
+            img.set_colorkey((0, 0, 0))
+            
+            # The generated image points diagonally down-right. 
+            # We rotate it counter-clockwise by 45 degrees so it points straight down.
+            img = pygame.transform.rotate(img, 45)
+
+            diam = int(BLOCK_SIZE * 3)
+            _meteor_image = pygame.transform.scale(img, (diam, diam))
+        except Exception as e:
+            print(f"Failed to load meteor image: {e}")
+            _meteor_image = pygame.Surface((int(BLOCK_SIZE * 3), int(BLOCK_SIZE * 3)), pygame.SRCALPHA)
+            pygame.draw.circle(_meteor_image, (100, 50, 20), (int(BLOCK_SIZE * 1.5), int(BLOCK_SIZE * 1.5)), int(BLOCK_SIZE * 1.5))
+    return _meteor_image
+
+def tnt_collision_handler(arbiter, space, data):
+    shape = arbiter.shapes[0]
+    block_shape = arbiter.shapes[1]
+    
+    if hasattr(block_shape, "block_ref"):
+        block = block_shape.block_ref
+        if block.name == "bedrock":
+            return
+            
+    if hasattr(shape, "block_ref"):
+        tnt_instance = shape.block_ref
+        tnt_instance.on_collision(arbiter, space, data)
 
 class Tnt:
     _font = None
 
-    def __init__(self, space, x, y, texture_atlas, atlas_items, sound_manager, owner_name=None, velocity=0, rotation=0, mass=70):
+    def __init__(self, space, x, y, texture_atlas, atlas_items, sound_manager, owner_name=None, velocity=0, rotation=0, mass=70, play_spawn_sound=True):
         print("Spawning TNT")
         self.texture_atlas = texture_atlas
         self.atlas_items = atlas_items
@@ -39,12 +75,13 @@ class Tnt:
         self.shape.block_ref = self  # Reference to the block object
 
         self.sound_manager = sound_manager
-        self.sound_manager.play_sound("tnt")
+        if play_spawn_sound:
+            self.sound_manager.play_sound("tnt")
 
         self.space.add(self.body, self.shape)
 
         handler = space.add_collision_handler(3, 2)  # TNT & Block collision
-        handler.post_solve = self.on_collision
+        handler.post_solve = tnt_collision_handler
 
         self.detonated = False
         self.spawn_time = pygame.time.get_ticks()
@@ -304,7 +341,7 @@ class Bomb(Tnt):
 
 class Meteor(Tnt):
     def __init__(self, space, x, y, texture_atlas, atlas_items, sound_manager, owner_name=None, velocity=(0, 2000), mass=500):
-        super().__init__(space, x, y, texture_atlas, atlas_items, sound_manager, owner_name, 0, 0, mass)
+        super().__init__(space, x, y, texture_atlas, atlas_items, sound_manager, owner_name, 0, 0, mass, play_spawn_sound=False)
         self.name = "meteor"
         
         self.body.velocity = velocity
@@ -322,7 +359,9 @@ class Meteor(Tnt):
         self.particles = []
 
     def explode(self, explosions):
-        explosion_radius = int(3 * BLOCK_SIZE * 3)
+        if hasattr(self, 'sound_manager') and self.sound_manager:
+            self.sound_manager.play_sound("explosion")
+        explosion_radius = int(3 * BLOCK_SIZE)
         self._explode_with_radius(explosions, explosion_radius, 4, 60)
 
     def on_collision(self, arbiter, space, data):
@@ -361,7 +400,9 @@ class Meteor(Tnt):
                 color = random.choice([(255, 69, 0), (255, 140, 0), (255, 215, 0)])
                 pygame.draw.circle(screen, color, (int(p[0] - camera.offset_x), int(p[1] - camera.offset_y)), int(p[2]))
 
-        pygame.draw.circle(screen, (100, 50, 20), (px, py), self.radius)
+        meteor_img = get_meteor_image()
+        img_rect = meteor_img.get_rect(center=(px, py))
+        screen.blit(meteor_img, img_rect)
         
         if self.owner_name:
             text_surface = self.font.render(self.owner_name, True, (255, 255, 255))

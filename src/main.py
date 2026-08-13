@@ -293,6 +293,7 @@ def game():
     sound_manager = SoundManager()
 
     sound_manager.load_sound("tnt", assets_dir / "sounds" / "tnt.mp3", 0.3)
+    sound_manager.load_sound("explosion", assets_dir / "sounds" / "explosion.wav", 0.5)
     sound_manager.load_sound("stone1", assets_dir / "sounds" / "stone1.wav", 0.5)
     sound_manager.load_sound("stone2", assets_dir / "sounds" / "stone2.wav", 0.5)
     sound_manager.load_sound("stone3", assets_dir / "sounds" / "stone3.wav", 0.5)
@@ -387,12 +388,16 @@ def game():
                 elif event.key == pygame.K_e:
                     print("Meteor keybind triggered (E)")
                     from tnt import Meteor
-                    new_meteor = Meteor(space, pickaxe.body.position.x, pickaxe.body.position.y - 1500, texture_atlas, atlas_items, sound_manager, owner_name="Host")
-                    tnt_list.append(new_meteor)
+                    for i in range(6):
+                        offset_x = random.randint(-400, 400)
+                        offset_y = random.randint(-1800, -1200)
+                        vel_x = random.randint(-100, 100)
+                        new_meteor = Meteor(space, pickaxe.body.position.x + offset_x, pickaxe.body.position.y + offset_y, texture_atlas, atlas_items, sound_manager, owner_name=None, velocity=(vel_x, 2000))
+                        tnt_list.append(new_meteor)
                 elif event.key == pygame.K_b:
                     print("Bomb keybind triggered (B)")
                     from tnt import Bomb
-                    new_bomb = Bomb(space, pickaxe.body.position.x, pickaxe.body.position.y - 300, texture_atlas, atlas_items, sound_manager, owner_name="Host")
+                    new_bomb = Bomb(space, pickaxe.body.position.x, pickaxe.body.position.y - 300, texture_atlas, atlas_items, sound_manager, owner_name=None)
                     tnt_list.append(new_bomb)
                 elif event.key == pygame.K_c:
                     print("Coal keybind triggered (C)")
@@ -412,11 +417,15 @@ def game():
                             water_particles.append(wp)
                     elif choice == 'meteor':
                         from tnt import Meteor
-                        new_meteor = Meteor(space, pickaxe.body.position.x, pickaxe.body.position.y - 1500, texture_atlas, atlas_items, sound_manager, owner_name="Random")
-                        tnt_list.append(new_meteor)
+                        for i in range(6):
+                            offset_x = rand.randint(-400, 400)
+                            offset_y = rand.randint(-1800, -1200)
+                            vel_x = rand.randint(-100, 100)
+                            new_meteor = Meteor(space, pickaxe.body.position.x + offset_x, pickaxe.body.position.y + offset_y, texture_atlas, atlas_items, sound_manager, owner_name=None, velocity=(vel_x, 2000))
+                            tnt_list.append(new_meteor)
                     elif choice == 'bomb':
                         from tnt import Bomb
-                        new_bomb = Bomb(space, pickaxe.body.position.x, pickaxe.body.position.y - 300, texture_atlas, atlas_items, sound_manager, owner_name="Random")
+                        new_bomb = Bomb(space, pickaxe.body.position.x, pickaxe.body.position.y - 300, texture_atlas, atlas_items, sound_manager, owner_name=None)
                         tnt_list.append(new_bomb)
                     elif choice == 'coal':
                         from chunk import update_block_weight
@@ -589,8 +598,12 @@ def game():
                 meteor_authors.discard(author)
                 print(f"Spawning Meteor for {author}")
                 from tnt import Meteor
-                new_meteor = Meteor(space, pickaxe.body.position.x, pickaxe.body.position.y - 1500, texture_atlas, atlas_items, sound_manager, owner_name=author)
-                tnt_list.append(new_meteor)
+                for i in range(6):
+                    offset_x = random.randint(-400, 400)
+                    offset_y = random.randint(-1800, -1200)
+                    vel_x = random.randint(-100, 100)
+                    new_meteor = Meteor(space, pickaxe.body.position.x + offset_x, pickaxe.body.position.y + offset_y, texture_atlas, atlas_items, sound_manager, owner_name=author, velocity=(vel_x, 2000))
+                    tnt_list.append(new_meteor)
 
             if wave_queue:
                 author = wave_queue.popleft()

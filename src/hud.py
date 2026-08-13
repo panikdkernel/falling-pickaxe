@@ -138,7 +138,7 @@ class Hud:
         # Draw commands image on the right before the bedrock border (with slight overlap to the right)
         if self.commands_image:
             cmd_x = screen.get_width() - BLOCK_SIZE - self.commands_image.get_width() + 60
-            cmd_y = 32
+            cmd_y = 120
             screen.blit(self.commands_image, (cmd_x, cmd_y))
 
         # Draw transparent hovering leaderboard box centered near top of screen
@@ -174,7 +174,7 @@ class Hud:
 
             # Position leaderboard centered horizontally near top of screen
             lb_x = (screen.get_width() - lb_box.get_width()) // 2
-            screen.blit(lb_box, (lb_x, 32))
+            screen.blit(lb_box, (lb_x, 120))
 
             
 
