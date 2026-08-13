@@ -116,13 +116,30 @@ python ./src/main.py &
 GAME_PID=$!
 sleep 3
 
+echo "Checking for background music..."
+MUSIC_DIR="./music"
+HAS_MUSIC=false
+
+if [ -d "$MUSIC_DIR" ]; then
+    # Generate concat playlist of all mp3 and wav files
+    find "$MUSIC_DIR" -type f \( -name "*.mp3" -o -name "*.wav" \) -exec echo "file '{}'" \; > playlist.txt
+    if [ -s playlist.txt ]; then
+        echo "Found music files. Will loop background music."
+        HAS_MUSIC=true
+    fi
+fi
+
 echo "Starting FFmpeg stream to YouTube..."
-ffmpeg -y \
-  -f x11grab -video_size 1080x1920 -framerate 60 -i :99.0 \
-  -f pulse -i virtual_speaker.monitor \
-  -c:v libx264 -preset ultrafast -tune zerolatency \
-  -aspect 9:16 -b:v 4500k \
-  -maxrate 5000k -bufsize 9000k -pix_fmt yuv420p -g 120 \
-  -c:a aac -b:a 128k -ar 44100 \
-  -map 0:v -map 1:a \
-  -f flv "rtmps://a.rtmp.youtube.com:443/live2/$STREAM_KEY"
+
+FFMPEG_CMD=(ffmpeg -y -f x11grab -video_size 1080x1920 -framerate 60 -i :99.0 -f pulse -i virtual_speaker.monitor)
+
+if [ "$HAS_MUSIC" = true ]; then
+    # Add music input, amix filter (game audio full volume, music at 30% volume), and map the new audio track
+    FFMPEG_CMD+=(-stream_loop -1 -f concat -safe 0 -i playlist.txt -filter_complex "[1:a][2:a]amix=inputs=2:duration=first:weights=1.0 0.3[aout]" -map 0:v -map "[aout]")
+else
+    FFMPEG_CMD+=(-map 0:v -map 1:a)
+fi
+
+FFMPEG_CMD+=(-c:v libx264 -preset ultrafast -tune zerolatency -aspect 9:16 -b:v 4500k -maxrate 5000k -bufsize 9000k -pix_fmt yuv420p -g 120 -c:a aac -b:a 128k -ar 44100 -f flv "rtmps://a.rtmp.youtube.com:443/live2/$STREAM_KEY")
+
+"${FFMPEG_CMD[@]}"
