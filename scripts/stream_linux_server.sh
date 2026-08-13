@@ -100,10 +100,10 @@ python ./src/main.py &
 GAME_PID=$!
 sleep 3
 
-echo "Starting FFmpeg stream to YouTube..."
+echo "Starting FFmpeg stream to YouTube (with dummy silent audio)..."
 ffmpeg -y \
   -f x11grab -video_size 1080x1920 -framerate 60 -i :99.0 \
-  -f pulse -i virtual_speaker.monitor \
+  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 \
   -c:v libx264 -preset ultrafast -tune zerolatency \
   -aspect 9:16 -b:v 4500k \
   -maxrate 5000k -bufsize 9000k -pix_fmt yuv420p -g 120 \
