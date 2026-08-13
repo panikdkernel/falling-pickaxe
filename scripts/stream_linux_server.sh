@@ -76,8 +76,18 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
+echo "Cleaning up previous PulseAudio instances..."
+pulseaudio --kill 2>/dev/null || true
+killall -9 pulseaudio 2>/dev/null || true
+rm -rf /tmp/pulse-* ~/.config/pulse/* 2>/dev/null || true
+sleep 1
+
 echo "Setting up virtual audio (PulseAudio)..."
-pulseaudio -D --exit-idle-time=-1 2>/dev/null || true
+# Ensure XDG_RUNTIME_DIR is set, which pulseaudio needs
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/tmp}
+
+pulseaudio --start --exit-idle-time=-1 2>/dev/null || true
+sleep 1
 pactl load-module module-null-sink sink_name=virtual_speaker 2>/dev/null || true
 
 export PULSE_SINK=virtual_speaker
