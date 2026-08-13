@@ -61,14 +61,16 @@ class Hud:
         self.pickaxe_indicator_surface = None
         self.fast_slow_cache = None
         self.fast_slow_surface = None
+        self.event_timer_cache = None
+        self.event_timer_surface = None
 
         # Load commands image
         import os
         image_path = os.path.join(os.path.dirname(__file__), 'assets', 'hud', 'commands.png')
         try:
             self.commands_image = pygame.image.load(image_path).convert_alpha()
-            # Scale it to be bigger (2.5 * BLOCK_SIZE) preserving aspect ratio
-            img_w = int(BLOCK_SIZE * 2.5)
+            # Scale it to be slightly smaller (2.0 * BLOCK_SIZE) preserving aspect ratio
+            img_w = int(BLOCK_SIZE * 2.0)
             img_h = int(img_w * (self.commands_image.get_height() / self.commands_image.get_width()))
             self.commands_image = pygame.transform.scale(self.commands_image, (img_w, img_h))
             # Set transparency (180 out of 255)
@@ -84,7 +86,7 @@ class Hud:
         """
         self.amounts.update(new_amounts)
 
-    def draw(self, screen, pickaxe_y, fast_slow_active, fast_slow, leaderboard_data=None):
+    def draw(self, screen, pickaxe_y, fast_slow_active, fast_slow, leaderboard_data=None, next_event_sec=None):
         """
         Draws the HUD: each ore icon with its amount and other indicators.
         """
@@ -135,10 +137,20 @@ class Hud:
         fast_slow_y = y + 2 * self.spacing + self.fast_slow_surface.get_height()
         screen.blit(self.fast_slow_surface, (fast_slow_x, fast_slow_y))
 
-        # Draw commands image on the right before the bedrock border (with slight overlap to the right)
+        # Draw next random event timer
+        if next_event_sec is not None:
+            timer_text = f"Next Event: {int(next_event_sec)}s"
+            if self.event_timer_cache != timer_text:
+                self.event_timer_surface = render_text_with_outline(timer_text, self.font, (255, 215, 0), (0, 0, 0), outline_width=2)
+                self.event_timer_cache = timer_text
+            timer_x = x + self.spacing
+            timer_y = fast_slow_y + self.spacing + self.fast_slow_surface.get_height()
+            screen.blit(self.event_timer_surface, (timer_x, timer_y))
+
+        # Draw commands image stuck flush to the right edge of the screen
         if self.commands_image:
-            cmd_x = screen.get_width() - BLOCK_SIZE - self.commands_image.get_width() + 60
-            cmd_y = 120
+            cmd_x = screen.get_width() - self.commands_image.get_width()
+            cmd_y = 60
             screen.blit(self.commands_image, (cmd_x, cmd_y))
 
         # Draw transparent hovering leaderboard box centered near top of screen

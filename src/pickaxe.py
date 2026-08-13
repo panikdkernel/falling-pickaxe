@@ -299,3 +299,79 @@ class Pickaxe:
 
         if pygame.time.get_ticks() > self.fire_end_time:
             self.is_on_fire = False
+
+class FallingPickaxe:
+    def __init__(self, space, x, y, pickaxe_type, texture_atlas, atlas_items, sound_manager, velocity=(0, 1500)):
+        self.space = space
+        self.sound_manager = sound_manager
+        self.pickaxe_type = pickaxe_type
+
+        # Damage per pickaxe tier
+        damage_table = {
+            "wooden_pickaxe": 2,
+            "stone_pickaxe": 4,
+            "iron_pickaxe": 6,
+            "golden_pickaxe": 8,
+            "diamond_pickaxe": 10,
+            "netherite_pickaxe": 12,
+        }
+        self.damage = damage_table.get(pickaxe_type, 4)
+
+        rect = atlas_items["pickaxe"][pickaxe_type]
+        self.texture = texture_atlas.subsurface(rect)
+        width, height = self.texture.get_size()
+
+        mass = 80
+        inertia = pymunk.moment_for_box(mass, (width, height))
+        self.body = pymunk.Body(mass, inertia)
+        self.body.position = (x, y)
+        self.body.velocity = velocity
+        self.body.angular_velocity = random.uniform(-5, 5)
+
+        self.shape = pymunk.Poly.create_box(self.body, (width, height))
+        self.shape.elasticity = 0.5
+        self.shape.friction = 0.5
+        self.shape.collision_type = 5  # Falling pickaxe collision type
+        self.shape.falling_pickaxe_ref = self
+
+        self.space.add(self.body, self.shape)
+        self.spawn_time = pygame.time.get_ticks()
+        self.despawn_time = self.spawn_time + 10000
+        self.destroyed = False
+
+    def on_collision(self, block):
+        if self.destroyed:
+            return
+        block.first_hit_time = pygame.time.get_ticks()
+        block.last_heal_time = block.first_hit_time
+        block.hp -= self.damage
+
+        if block.name in ("grass_block", "dirt"):
+            self.sound_manager.play_sound("grass" + str(random.randint(1, 4)))
+        else:
+            self.sound_manager.play_sound("stone" + str(random.randint(1, 4)))
+
+    def update(self, falling_pickaxes_list, current_time=None):
+        if current_time is None:
+            current_time = pygame.time.get_ticks()
+
+        if current_time >= self.despawn_time:
+            self.destroyed = True
+
+        if self.destroyed:
+            self.space.remove(self.body, self.shape)
+            if self in falling_pickaxes_list:
+                falling_pickaxes_list.remove(self)
+            return
+
+        if self.body.velocity.y > 1500:
+            self.body.velocity = (self.body.velocity.x, 1500)
+
+    def draw(self, screen, camera):
+        if self.destroyed:
+            return
+        rotated_image = pygame.transform.rotate(self.texture, -math.degrees(self.body.angle))
+        rect = rotated_image.get_rect(center=(self.body.position.x, self.body.position.y))
+        rect.y -= camera.offset_y
+        rect.x -= camera.offset_x
+        screen.blit(rotated_image, rect)

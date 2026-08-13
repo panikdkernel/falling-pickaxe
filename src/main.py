@@ -8,7 +8,7 @@ from atlas import create_texture_atlas
 from pathlib import Path
 from chunk import get_block, clean_chunks, delete_block, chunks
 from constants import BLOCK_SCALE_FACTOR, BLOCK_SIZE, CHUNK_HEIGHT, CHUNK_WIDTH, INTERNAL_HEIGHT, INTERNAL_WIDTH, FRAMERATE
-from pickaxe import Pickaxe
+from pickaxe import Pickaxe, FallingPickaxe
 from camera import Camera
 from sound import SoundManager
 from tnt import Tnt, MegaTnt
@@ -90,6 +90,11 @@ bomb_queue = deque()
 bomb_authors = set()
 coal_queue = deque()
 coal_authors = set()
+rain_queue = deque()
+rain_authors = set()
+rain_active = False
+rain_end_time = 0
+last_rain_spawn_time = 0
 
 leaderboard_data = {}
 async def handle_youtube_poll():
@@ -112,7 +117,7 @@ async def handle_youtube_poll():
         text_lower = text.lower()
 
         if "random" in text_lower:
-             choices = ["tnt", "fast", "slow", "big", "wood", "stone", "iron", "gold", "diamond", "netherite", "fire", "meteor", "wave", "bomb", "coal"]
+             choices = ["tnt", "fast", "slow", "big", "wood", "stone", "iron", "gold", "diamond", "netherite", "fire", "meteor", "wave", "bomb", "coal", "rain"]
              chosen = random.choice(choices)
              text_lower += " " + chosen
              text += " " + chosen
@@ -217,6 +222,11 @@ async def handle_youtube_poll():
              coal_authors.add(author)
              print(f"Added {author} to Coal queue")
              command_used = True
+        if "rain" in text_lower and author not in rain_authors:
+             rain_queue.append(author)
+             rain_authors.add(author)
+             print(f"Added {author} to Rain queue")
+             command_used = True
 
         if command_used:
             if author not in leaderboard_data:
@@ -314,6 +324,7 @@ def game():
     # Random Pickaxe
     last_random_pickaxe = pygame.time.get_ticks()
     random_pickaxe_interval = 1000 * random.uniform(config["RANDOM_PICKAXE_INTERVAL_SECONDS_MIN"], config["RANDOM_PICKAXE_INTERVAL_SECONDS_MAX"])
+    next_random_event_time = last_random_pickaxe + random_pickaxe_interval
 
     # Pickaxe enlargement
     last_enlarge = pygame.time.get_ticks()
@@ -328,7 +339,60 @@ def game():
 
     water_particles = []
     coal_boost_active = False
+    falling_pickaxes = []
+    rain_active = False
+    rain_end_time = 0
+    last_rain_spawn_time = 0
+
+    def falling_pickaxe_collision_handler(arbiter, space, data):
+        shape = arbiter.shapes[0]
+        block_shape = arbiter.shapes[1]
+        if hasattr(block_shape, "block_ref") and block_shape.block_ref.name == "bedrock":
+            return True
+        if hasattr(shape, "falling_pickaxe_ref") and hasattr(block_shape, "block_ref"):
+            fp = shape.falling_pickaxe_ref
+            block = block_shape.block_ref
+            fp.on_collision(block)
+        return True
+
+    fp_handler = space.add_collision_handler(5, 2)
+    fp_handler.post_solve = falling_pickaxe_collision_handler
     coal_boost_end_time = 0
+
+    def trigger_random_event():
+        nonlocal coal_boost_active, coal_boost_end_time, rain_active, rain_end_time
+        choice = random.choice(['fire', 'wave', 'meteor', 'bomb', 'coal', 'megatnt', 'rain'])
+        print(f"Triggered random event: {choice}")
+        if choice == 'fire':
+            pickaxe.ignite(5000)
+        elif choice == 'wave':
+            from water import WaterParticle
+            for _ in range(100):
+                wp = WaterParticle(space, random.randint(BLOCK_SIZE, INTERNAL_WIDTH - BLOCK_SIZE), pickaxe.body.position.y - 800)
+                water_particles.append(wp)
+        elif choice == 'meteor':
+            from tnt import Meteor
+            for i in range(6):
+                offset_x = random.randint(-400, 400)
+                offset_y = random.randint(-1800, -1200)
+                vel_x = random.randint(-100, 100)
+                new_meteor = Meteor(space, pickaxe.body.position.x + offset_x, pickaxe.body.position.y + offset_y, texture_atlas, atlas_items, sound_manager, owner_name=None, velocity=(vel_x, 2000))
+                tnt_list.append(new_meteor)
+        elif choice == 'bomb':
+            from tnt import Bomb
+            new_bomb = Bomb(space, pickaxe.body.position.x, pickaxe.body.position.y - 300, texture_atlas, atlas_items, sound_manager, owner_name=None)
+            tnt_list.append(new_bomb)
+        elif choice == 'coal':
+            from chunk import update_block_weight
+            update_block_weight("coal_ore", 150)
+            coal_boost_active = True
+            coal_boost_end_time = pygame.time.get_ticks() + 5000
+        elif choice == 'megatnt':
+            new_megatnt = MegaTnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100, texture_atlas, atlas_items, sound_manager)
+            tnt_list.append(new_megatnt)
+        elif choice == 'rain':
+            rain_active = True
+            rain_end_time = pygame.time.get_ticks() + 5000
 
     # Camera
     camera = Camera()
@@ -405,36 +469,13 @@ def game():
                     update_block_weight("coal_ore", 150)
                     coal_boost_active = True
                     coal_boost_end_time = pygame.time.get_ticks() + 5000
+                elif event.key == pygame.K_p:
+                    print("Rain keybind triggered (P)")
+                    rain_active = True
+                    rain_end_time = pygame.time.get_ticks() + 2000
                 elif event.key == pygame.K_r:
                     print("Random keybind triggered (R)")
-                    import random as rand
-                    choice = rand.choice(['fire', 'wave', 'meteor', 'bomb', 'coal', 'megatnt'])
-                    if choice == 'fire': pickaxe.ignite(5000)
-                    elif choice == 'wave':
-                        from water import WaterParticle
-                        for _ in range(100):
-                            wp = WaterParticle(space, rand.randint(BLOCK_SIZE, INTERNAL_WIDTH - BLOCK_SIZE), pickaxe.body.position.y - 800)
-                            water_particles.append(wp)
-                    elif choice == 'meteor':
-                        from tnt import Meteor
-                        for i in range(6):
-                            offset_x = rand.randint(-400, 400)
-                            offset_y = rand.randint(-1800, -1200)
-                            vel_x = rand.randint(-100, 100)
-                            new_meteor = Meteor(space, pickaxe.body.position.x + offset_x, pickaxe.body.position.y + offset_y, texture_atlas, atlas_items, sound_manager, owner_name=None, velocity=(vel_x, 2000))
-                            tnt_list.append(new_meteor)
-                    elif choice == 'bomb':
-                        from tnt import Bomb
-                        new_bomb = Bomb(space, pickaxe.body.position.x, pickaxe.body.position.y - 300, texture_atlas, atlas_items, sound_manager, owner_name=None)
-                        tnt_list.append(new_bomb)
-                    elif choice == 'coal':
-                        from chunk import update_block_weight
-                        update_block_weight("coal_ore", 150)
-                        coal_boost_active = True
-                        coal_boost_end_time = pygame.time.get_ticks() + 5000
-                    elif choice == 'megatnt':
-                        new_megatnt = MegaTnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100, texture_atlas, atlas_items, sound_manager)
-                        tnt_list.append(new_megatnt)
+                    trigger_random_event()
 
         # ++++++++++++++++++  UPDATE ++++++++++++++++++
         # Determine which chunks are visible
@@ -489,12 +530,12 @@ def game():
              # New random interval for the next TNT spawn
              tnt_spawn_interval = 1000 * random.uniform(config["TNT_SPAWN_INTERVAL_SECONDS_MIN"], config["TNT_SPAWN_INTERVAL_SECONDS_MAX"])
 
-        # Check if it's time to change the pickaxe (random)
-        if (not config["CHAT_CONTROL"] or not pickaxe_queue) and current_time - last_random_pickaxe >= random_pickaxe_interval:
-            pickaxe.random_pickaxe(texture_atlas, atlas_items)
+        # Check if it's time to trigger a random event
+        if current_time >= next_random_event_time:
+            trigger_random_event()
             last_random_pickaxe = current_time
-            # New random interval for the next pickaxe change
             random_pickaxe_interval = 1000 * random.uniform(config["RANDOM_PICKAXE_INTERVAL_SECONDS_MIN"], config["RANDOM_PICKAXE_INTERVAL_SECONDS_MAX"])
+            next_random_event_time = current_time + random_pickaxe_interval
 
         # Check if it's time for pickaxe enlargement (random)
         if (not config["CHAT_CONTROL"] or not big_queue) and current_time - last_enlarge >= enlarge_interval:
@@ -630,6 +671,28 @@ def game():
                 update_block_weight("coal_ore", 150)
                 coal_boost_active = True
                 coal_boost_end_time = current_time + 5000
+
+            if rain_queue:
+                author = rain_queue.popleft()
+                rain_authors.discard(author)
+                print(f"Triggering Pickaxe Rain for {author}")
+                rain_active = True
+                rain_end_time = current_time + 5000
+
+        if rain_active:
+            if current_time >= rain_end_time:
+                rain_active = False
+            elif current_time - last_rain_spawn_time >= 150:
+                last_rain_spawn_time = current_time
+                pickaxe_types = ["wooden_pickaxe", "stone_pickaxe", "iron_pickaxe", "golden_pickaxe", "diamond_pickaxe", "netherite_pickaxe"]
+                random_pickaxe = random.choice(pickaxe_types)
+                spawn_x = pickaxe.body.position.x + random.randint(-400, 400)
+                spawn_y = pickaxe.body.position.y - random.randint(800, 1200)
+                fp = FallingPickaxe(space, spawn_x, spawn_y, random_pickaxe, texture_atlas, atlas_items, sound_manager, velocity=(random.randint(-100, 100), random.randint(1200, 1800)))
+                falling_pickaxes.append(fp)
+
+        for fp in falling_pickaxes[:]:
+            fp.update(falling_pickaxes, current_time)
         # Delete chunks
         clean_chunks(start_chunk_y, space)
 
@@ -653,6 +716,10 @@ def game():
         for tnt in tnt_list:
             tnt.draw(internal_surface, camera)
 
+        # Draw falling pickaxes from rain
+        for fp in falling_pickaxes:
+            fp.draw(internal_surface, camera)
+
         # Draw particles
         for explosion in explosions:
             explosion.update(dt_ms)
@@ -662,7 +729,8 @@ def game():
         explosions = [e for e in explosions if e.particles]
 
         # Draw HUD
-        hud.draw(internal_surface, pickaxe.body.position.y, fast_slow_active, fast_slow, leaderboard_data)
+        next_event_sec = max(0, int((next_random_event_time - current_time) / 1000))
+        hud.draw(internal_surface, pickaxe.body.position.y, fast_slow_active, fast_slow, leaderboard_data, next_event_sec=next_event_sec)
 
         # Draw water particles
         if water_particles:
