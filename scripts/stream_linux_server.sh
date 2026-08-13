@@ -107,6 +107,11 @@ source .venv/bin/activate
 # Note: No 'dummy' drivers used here! Pygame will render to the virtual screen & audio
 export HEADLESS_FULLSCREEN=1
 export SDL_AUDIODRIVER=pulseaudio
+
+# Increase this if the game runs too slow on your server (e.g. CPU bottleneck dropping frames). 
+# 1.5 = 50% faster physics simulation per frame
+export LINUX_SERVER_SPEED_BOOST=1.5
+
 python ./src/main.py &
 GAME_PID=$!
 sleep 3

@@ -434,12 +434,13 @@ def game():
         dt_ms = clock.get_time()
         current_time = pygame.time.get_ticks()
 
-        step_speed = 1 / FRAMERATE  # Fixed time step for physics simulation
+        server_speed_boost = float(os.environ.get("LINUX_SERVER_SPEED_BOOST", "1.0"))
+        step_speed = (1 / FRAMERATE) * server_speed_boost  # Fixed time step for physics simulation
         
         if fast_slow_active and fast_slow == "Fast":
-            step_speed = 1 / (FRAMERATE / 2)
+            step_speed = (1 / (FRAMERATE / 2)) * server_speed_boost
         elif fast_slow_active and fast_slow == "Slow":
-            step_speed = 1 / (FRAMERATE * 2)
+            step_speed = (1 / (FRAMERATE * 2)) * server_speed_boost
 
         # Update water particles
         for wp in water_particles:
