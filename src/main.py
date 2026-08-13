@@ -78,6 +78,19 @@ big_authors = set()
 pickaxe_queue = deque()
 pickaxe_authors = set()
 mega_tnt_queue = deque()
+
+# New command queues
+fire_queue = deque()
+fire_authors = set()
+meteor_queue = deque()
+meteor_authors = set()
+wave_queue = deque()
+wave_authors = set()
+bomb_queue = deque()
+bomb_authors = set()
+coal_queue = deque()
+coal_authors = set()
+
 leaderboard_data = {}
 async def handle_youtube_poll():
     global subscribers # Use global to modify the variable
@@ -97,6 +110,13 @@ async def handle_youtube_poll():
         is_supersticker = message["ss_details"] is not None
 
         text_lower = text.lower()
+
+        if "random" in text_lower:
+             choices = ["tnt", "fast", "slow", "big", "wood", "stone", "iron", "gold", "diamond", "netherite", "fire", "meteor", "wave", "bomb", "coal"]
+             chosen = random.choice(choices)
+             text_lower += " " + chosen
+             text += " " + chosen
+             print(f"{author} rolled random: {chosen}")
 
         # Give 1 point for any valid command
         command_used = False
@@ -171,6 +191,32 @@ async def handle_youtube_poll():
                  pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (netherite_pickaxe)")
                  command_used = True
+
+        if "fire" in text_lower and author not in fire_authors:
+             fire_queue.append(author)
+             fire_authors.add(author)
+             print(f"Added {author} to Fire queue")
+             command_used = True
+        if "meteor" in text_lower and author not in meteor_authors:
+             meteor_queue.append(author)
+             meteor_authors.add(author)
+             print(f"Added {author} to Meteor queue")
+             command_used = True
+        if "wave" in text_lower and author not in wave_authors:
+             wave_queue.append(author)
+             wave_authors.add(author)
+             print(f"Added {author} to Wave queue")
+             command_used = True
+        if "bomb" in text_lower and author not in bomb_authors:
+             bomb_queue.append(author)
+             bomb_authors.add(author)
+             print(f"Added {author} to Bomb queue")
+             command_used = True
+        if "coal" in text_lower and author not in coal_authors:
+             coal_queue.append(author)
+             coal_authors.add(author)
+             print(f"Added {author} to Coal queue")
+             command_used = True
 
         if command_used:
             if author not in leaderboard_data:
@@ -279,6 +325,10 @@ def game():
     fast_slow_interval = 1000 * random.uniform(config["FAST_SLOW_INTERVAL_SECONDS_MIN"], config["FAST_SLOW_INTERVAL_SECONDS_MAX"])
     last_fast_slow = pygame.time.get_ticks()
 
+    water_particles = []
+    coal_boost_active = False
+    coal_boost_end_time = 0
+
     # Camera
     camera = Camera()
 
@@ -324,6 +374,58 @@ def game():
                 else:
                     screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE)
                 scaled_surface = pygame.Surface((window_width, window_height)).convert()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_f:
+                    print("Fire keybind triggered")
+                    pickaxe.ignite(5000)
+                elif event.key == pygame.K_w:
+                    print("Wave keybind triggered")
+                    from water import WaterParticle
+                    for _ in range(100):
+                        wp = WaterParticle(space, random.randint(BLOCK_SIZE, INTERNAL_WIDTH - BLOCK_SIZE), pickaxe.body.position.y - 800)
+                        water_particles.append(wp)
+                elif event.key == pygame.K_e:
+                    print("Meteor keybind triggered (E)")
+                    from tnt import Meteor
+                    new_meteor = Meteor(space, pickaxe.body.position.x, pickaxe.body.position.y - 1500, texture_atlas, atlas_items, sound_manager, owner_name="Host")
+                    tnt_list.append(new_meteor)
+                elif event.key == pygame.K_b:
+                    print("Bomb keybind triggered (B)")
+                    from tnt import Bomb
+                    new_bomb = Bomb(space, pickaxe.body.position.x, pickaxe.body.position.y - 300, texture_atlas, atlas_items, sound_manager, owner_name="Host")
+                    tnt_list.append(new_bomb)
+                elif event.key == pygame.K_c:
+                    print("Coal keybind triggered (C)")
+                    from chunk import update_block_weight
+                    update_block_weight("coal_ore", 150)
+                    coal_boost_active = True
+                    coal_boost_end_time = pygame.time.get_ticks() + 5000
+                elif event.key == pygame.K_r:
+                    print("Random keybind triggered (R)")
+                    import random as rand
+                    choice = rand.choice(['fire', 'wave', 'meteor', 'bomb', 'coal', 'megatnt'])
+                    if choice == 'fire': pickaxe.ignite(5000)
+                    elif choice == 'wave':
+                        from water import WaterParticle
+                        for _ in range(100):
+                            wp = WaterParticle(space, rand.randint(BLOCK_SIZE, INTERNAL_WIDTH - BLOCK_SIZE), pickaxe.body.position.y - 800)
+                            water_particles.append(wp)
+                    elif choice == 'meteor':
+                        from tnt import Meteor
+                        new_meteor = Meteor(space, pickaxe.body.position.x, pickaxe.body.position.y - 1500, texture_atlas, atlas_items, sound_manager, owner_name="Random")
+                        tnt_list.append(new_meteor)
+                    elif choice == 'bomb':
+                        from tnt import Bomb
+                        new_bomb = Bomb(space, pickaxe.body.position.x, pickaxe.body.position.y - 300, texture_atlas, atlas_items, sound_manager, owner_name="Random")
+                        tnt_list.append(new_bomb)
+                    elif choice == 'coal':
+                        from chunk import update_block_weight
+                        update_block_weight("coal_ore", 150)
+                        coal_boost_active = True
+                        coal_boost_end_time = pygame.time.get_ticks() + 5000
+                    elif choice == 'megatnt':
+                        new_megatnt = MegaTnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100, texture_atlas, atlas_items, sound_manager)
+                        tnt_list.append(new_megatnt)
 
         # ++++++++++++++++++  UPDATE ++++++++++++++++++
         # Determine which chunks are visible
@@ -333,10 +435,21 @@ def game():
         current_time = pygame.time.get_ticks()
 
         step_speed = 1 / FRAMERATE  # Fixed time step for physics simulation
+        
         if fast_slow_active and fast_slow == "Fast":
             step_speed = 1 / (FRAMERATE / 2)
         elif fast_slow_active and fast_slow == "Slow":
             step_speed = 1 / (FRAMERATE * 2)
+
+        # Update water particles
+        for wp in water_particles:
+            wp.update(current_time)
+        water_particles[:] = [wp for wp in water_particles if not wp.dead]
+            
+        if coal_boost_active and current_time >= coal_boost_end_time:
+            coal_boost_active = False
+            from chunk import update_block_weight
+            update_block_weight("coal_ore", 10) # revert
 
         space.step(step_speed)
 
@@ -464,7 +577,45 @@ def game():
                 last_random_pickaxe = current_time
                 random_pickaxe_interval = 1000 * random.uniform(config["RANDOM_PICKAXE_INTERVAL_SECONDS_MIN"], config["RANDOM_PICKAXE_INTERVAL_SECONDS_MAX"])
 
+            if fire_queue:
+                author = fire_queue.popleft()
+                fire_authors.discard(author)
+                print(f"Igniting pickaxe for {author}")
+                pickaxe.ignite(5000)
 
+            if meteor_queue:
+                author = meteor_queue.popleft()
+                meteor_authors.discard(author)
+                print(f"Spawning Meteor for {author}")
+                from tnt import Meteor
+                new_meteor = Meteor(space, pickaxe.body.position.x, pickaxe.body.position.y - 1500, texture_atlas, atlas_items, sound_manager, owner_name=author)
+                tnt_list.append(new_meteor)
+
+            if wave_queue:
+                author = wave_queue.popleft()
+                wave_authors.discard(author)
+                print(f"Triggering Wave for {author}")
+                from water import WaterParticle
+                for _ in range(100):
+                    wp = WaterParticle(space, random.randint(BLOCK_SIZE, INTERNAL_WIDTH - BLOCK_SIZE), pickaxe.body.position.y - 800)
+                    water_particles.append(wp)
+
+            if bomb_queue:
+                author = bomb_queue.popleft()
+                bomb_authors.discard(author)
+                print(f"Spawning Bomb for {author}")
+                from tnt import Bomb
+                new_bomb = Bomb(space, pickaxe.body.position.x, pickaxe.body.position.y - 300, texture_atlas, atlas_items, sound_manager, owner_name=author)
+                tnt_list.append(new_bomb)
+
+            if coal_queue:
+                author = coal_queue.popleft()
+                coal_authors.discard(author)
+                print(f"Boosting coal blocks for {author}")
+                from chunk import update_block_weight
+                update_block_weight("coal_ore", 150)
+                coal_boost_active = True
+                coal_boost_end_time = current_time + 5000
         # Delete chunks
         clean_chunks(start_chunk_y, space)
 
@@ -498,6 +649,11 @@ def game():
 
         # Draw HUD
         hud.draw(internal_surface, pickaxe.body.position.y, fast_slow_active, fast_slow, leaderboard_data)
+
+        # Draw water particles
+        if water_particles:
+            from water import WaterParticle
+            WaterParticle.draw_fluid(water_particles, internal_surface, camera)
 
         # Scale internal surface to fit the resized window
         pygame.transform.scale(internal_surface, (window_width, window_height), scaled_surface)

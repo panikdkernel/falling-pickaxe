@@ -62,62 +62,20 @@ class Hud:
         self.fast_slow_cache = None
         self.fast_slow_surface = None
 
-        # Pre-render commands sidebar (Right side)
-        self.sidebar_title_font = pygame.font.Font(None, 24)
-        self.sidebar_font = pygame.font.Font(None, 20)
-        
-        # Maximize font size that still fits in ~110px width
-        self.commands_title_font = pygame.font.Font(None, 30)
-        self.commands_font = pygame.font.Font(None, 26)
-        self.small_font = pygame.font.Font(None, 34)
-        self.commands_surface = None
-        self._init_commands_surface()
-
-    def _init_commands_surface(self):
-        commands = [
-            ("COMMANDS", (255, 215, 0)),
-            ("----------------", (150, 150, 150)),
-            ("tnt", (255, 255, 255)),
-            ("big", (255, 255, 255)),
-            ("fast", (255, 255, 255)),
-            ("slow", (255, 255, 255)),
-            ("----------------", (150, 150, 150)),
-            ("PICKAXES:", (255, 215, 0)),
-            ("wood", (220, 220, 220)),
-            ("stone", (220, 220, 220)),
-            ("iron", (220, 220, 220)),
-            ("gold", (220, 220, 220)),
-            ("diamond", (220, 220, 220)),
-            ("netherite", (220, 220, 220)),
-        ]
-        
-        # Strictly keep to bedrock width (120px) to not block game
-        sidebar_w = BLOCK_SIZE
-        # We need INTERNAL_HEIGHT, which was imported
+        # Load commands image
+        import os
+        image_path = os.path.join(os.path.dirname(__file__), 'assets', 'hud', 'commands.png')
         try:
-            sidebar_h = INTERNAL_HEIGHT
-        except NameError:
-            sidebar_h = 1920 # Fallback
-
-        self.commands_surface = pygame.Surface((sidebar_w, sidebar_h), pygame.SRCALPHA)
-
-        # Semi-transparent dark overlay covering the right area
-        bg_rect = pygame.Rect(0, 0, sidebar_w, sidebar_h)
-        pygame.draw.rect(self.commands_surface, (0, 0, 0, 180), bg_rect)
-        pygame.draw.line(self.commands_surface, (255, 215, 0, 200), (0, 0), (0, sidebar_h), width=3)
-
-        cur_y = 60
-        spacing = 16
-
-        for text, color in commands:
-            is_title = text in ["COMMANDS", "PICKAXES:"]
-            font = self.commands_title_font if is_title else self.commands_font
-            surf = render_text_with_outline(text, font, color, (0, 0, 0), outline_width=2)
-            
-            # Center alignment inside sidebar
-            cur_x = (sidebar_w - surf.get_width()) // 2
-            self.commands_surface.blit(surf, (cur_x, cur_y))
-            cur_y += surf.get_height() + spacing
+            self.commands_image = pygame.image.load(image_path).convert_alpha()
+            # Scale it to be bigger (2.5 * BLOCK_SIZE) preserving aspect ratio
+            img_w = int(BLOCK_SIZE * 2.5)
+            img_h = int(img_w * (self.commands_image.get_height() / self.commands_image.get_width()))
+            self.commands_image = pygame.transform.scale(self.commands_image, (img_w, img_h))
+            # Set transparency (180 out of 255)
+            self.commands_image.set_alpha(180)
+        except Exception as e:
+            print(f"Error loading commands image: {e}")
+            self.commands_image = None
 
     def update_amounts(self, new_amounts):
         """
@@ -177,10 +135,11 @@ class Hud:
         fast_slow_y = y + 2 * self.spacing + self.fast_slow_surface.get_height()
         screen.blit(self.fast_slow_surface, (fast_slow_x, fast_slow_y))
 
-        # Draw vertical commands sidebar over the right bedrock wall
-        if self.commands_surface:
-            cmd_x = screen.get_width() - self.commands_surface.get_width()
-            screen.blit(self.commands_surface, (cmd_x, 0))
+        # Draw commands image on the right before the bedrock border (with slight overlap to the right)
+        if self.commands_image:
+            cmd_x = screen.get_width() - BLOCK_SIZE - self.commands_image.get_width() + 60
+            cmd_y = 32
+            screen.blit(self.commands_image, (cmd_x, cmd_y))
 
         # Draw transparent hovering leaderboard box centered near top of screen
         top_viewers = sorted(leaderboard_data.items(), key=lambda item: item[1], reverse=True)[:5]

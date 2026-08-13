@@ -86,6 +86,10 @@ class Block:
         self.heal_interval = 5000  # Heal every 5 seconds (5000 ms)
         self.first_hit_time = None  # Track the time when the block was first hit
 
+        self.is_burning = False
+        self.burn_start_time = None
+        self.last_burn_tick = None
+
         cache_key = id(texture_atlas)
         if cache_key not in Block._destroy_stage_cache:
             Block._destroy_stage_cache[cache_key] = [
@@ -105,6 +109,14 @@ class Block:
         if self.first_hit_time is None and self.hp < self.max_hp:
             self.first_hit_time = current_time
             self.last_heal_time = self.first_hit_time
+
+        # Handle burning effect
+        if self.is_burning:
+            if current_time - self.burn_start_time > 3000:
+                self.is_burning = False
+            elif current_time - self.last_burn_tick >= 1000:
+                self.hp -= 4
+                self.last_burn_tick = current_time
 
         # Check if the block has been hit before and start healing 5 seconds after it was first hit
         if self.first_hit_time is not None:
@@ -158,3 +170,14 @@ class Block:
             # Draw the destroy stage overlay
             destroy_texture = self.destroy_textures[damage_stage]
             screen.blit(destroy_texture, (block_x, block_y))
+            
+        if getattr(self, "is_burning", False):
+            # Draw simple translucent orange overlay for fire effect
+            burn_surface = pygame.Surface((BLOCK_SIZE, BLOCK_SIZE), pygame.SRCALPHA)
+            burn_surface.fill((255, 100, 0, 100))
+            screen.blit(burn_surface, (block_x, block_y))
+
+    def set_burning(self, current_time):
+        self.is_burning = True
+        self.burn_start_time = current_time
+        self.last_burn_tick = current_time

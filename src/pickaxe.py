@@ -83,6 +83,17 @@ class Pickaxe:
         handler = space.add_collision_handler(1, 2)  # (Pickaxe type, Block type)
         handler.post_solve = self.on_collision
 
+        # Add collision handler for pickaxe & water
+        water_handler = space.add_collision_handler(1, 4) # (Pickaxe type, Water type)
+        water_handler.pre_solve = self.on_water_collision
+
+    def on_water_collision(self, arbiter, space, data):
+        """Apply drag force/slowdown when pickaxe touches water."""
+        # Dampen velocity by a factor to simulate drag
+        self.body.velocity = self.body.velocity * 0.90
+        # Returning True allows the collision to process normally, though we just want the velocity change
+        return True
+
     def on_collision(self, arbiter, space, data):
         """Handles collision with blocks: Reduce HP or destroy the block."""
         block_shape = arbiter.shapes[1]  # Get the block shape
@@ -91,7 +102,11 @@ class Pickaxe:
         block.first_hit_time = pygame.time.get_ticks()  
         block.last_heal_time = block.first_hit_time
 
-        block.hp -= self.damage  # Reduce HP when hit
+        damage_dealt = self.damage * 2 if getattr(self, "is_on_fire", False) else self.damage
+        block.hp -= damage_dealt  # Reduce HP when hit
+        
+        if getattr(self, "is_on_fire", False):
+            block.set_burning(pygame.time.get_ticks())
 
         if (block.name == "grass_block" or block.name == "dirt"):
             self.sound_manager.play_sound("grass" + str(random.randint(1, 4)))
@@ -195,6 +210,7 @@ class Pickaxe:
         rect.y -= camera.offset_y
         rect.x -= camera.offset_x
         screen.blit(rotated_image, rect)
+        self._update_and_draw_fire(screen, camera)
 
     def enlarge(self, duration=5000):
         """Temporarily makes the pickaxe 3 times bigger with a larger hitbox."""
@@ -244,3 +260,42 @@ class Pickaxe:
             self.is_enlarged = False
 
             del self.enlarge_end_time  # Remove the enlargement timer
+
+    def ignite(self, duration=5000):
+        """Temporarily sets the pickaxe on fire, increasing damage and adding visual effects."""
+        print("Igniting pickaxe")
+        if hasattr(self, "is_on_fire") and self.is_on_fire:
+            self.fire_end_time = pygame.time.get_ticks() + duration
+            return
+        
+        self.is_on_fire = True
+        self.fire_end_time = pygame.time.get_ticks() + duration
+        self.fire_particles = [] # list of [x, y, radius]
+
+    def _update_and_draw_fire(self, screen, camera):
+        if not getattr(self, "is_on_fire", False):
+            return
+
+        # Add new particles around the pickaxe body
+        px, py = self.body.position
+        for _ in range(3):
+            # Spawn near pickaxe
+            offset_x = random.randint(-40, 40)
+            offset_y = random.randint(-40, 40)
+            self.fire_particles.append([px + offset_x, py + offset_y, random.randint(5, 10)])
+
+        # Update and draw particles
+        for p in self.fire_particles[:]:
+            p[0] += random.uniform(-1, 1) # x drift
+            p[1] -= random.uniform(2, 5)  # y move up
+            p[2] -= 0.3                   # shrink radius
+            
+            if p[2] <= 0:
+                self.fire_particles.remove(p)
+            else:
+                # Colors: Orange/Red/Yellow
+                color = random.choice([(255, 69, 0), (255, 140, 0), (255, 215, 0)])
+                pygame.draw.circle(screen, color, (int(p[0] - camera.offset_x), int(p[1] - camera.offset_y)), int(p[2]))
+
+        if pygame.time.get_ticks() > self.fire_end_time:
+            self.is_on_fire = False
